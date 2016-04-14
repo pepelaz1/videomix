@@ -166,6 +166,7 @@
     <ClInclude Include="VideoMixingProperties.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\sample\ReadMe.txt" />
     <None Include="VideoMixingFilter.def" />
   </ItemGroup>
   <ItemGroup>

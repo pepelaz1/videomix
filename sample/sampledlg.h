@@ -3,9 +3,12 @@
 //
 
 #pragma once
+#include "HotkeyHandler.h"
 #include "player.h"
 #include "afxwin.h"
 #include "afxcmn.h"
+
+
 
 // CSampleDlg dialog
 class CSampleDlg : public CDialogEx
@@ -13,9 +16,12 @@ class CSampleDlg : public CDialogEx
 private:
 	CPlayer m_player;
 	CPlayerWindow m_playerWnd;
+	CPlayerWindow m_playerWnd_p;
+//	CHotkeyHandler m_hk;
 
 	void MoveControls();
 	void InitPlayer();
+	void UpdateBBoxControls();
 public:
 	void Finalize();
 	// Construction
@@ -77,4 +83,12 @@ public:
 	CEdit m_edtBBoxHeight;
 	CButton m_btnBBoxSet;
 	afx_msg void OnBnClickedStepBtn2();
+	CButton m_cbLoop;
+
+	void Play();
+	void Pause();
+	void Stop();
+	void Step();
+	virtual BOOL PreTranslateMessage(MSG* pMsg);
+	void OnHotKey(MSG *pMsg);
 };

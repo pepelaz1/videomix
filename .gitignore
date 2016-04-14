@@ -1,0 +1,8 @@
+videomix.opensdf
+videomix.sdf
+bin/VideoMixingFilter.exp
+mixerfilter/Debug/
+mixerfilter/Release/
+sample/Debug/
+sample/Release/
+test/

@@ -65,7 +65,9 @@ HRESULT VideoMixingBase::Receive( IMediaSample *pSample, int nIndex )
 	ASSERT (nIndex < m_vInputPins.size());
 	ASSERT(pSample);
 	ASSERT (m_vOutputPins[0] != NULL);
-	
+
+	BeforeReceive();
+
 	if (nIndex == 0)
 	{
 		return ReceiveFirstSample(pSample);

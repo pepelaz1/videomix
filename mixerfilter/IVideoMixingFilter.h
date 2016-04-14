@@ -1,6 +1,8 @@
 #ifndef __IVIDEOMIXINGFILTER__
 #define __IVIDEOMIXINGFILTER__
 
+#include "../srcfilter/IVideoSourceFilter.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -12,14 +14,25 @@ extern "C" {
 
 
     DECLARE_INTERFACE_(IVideoMixingFilter, IUnknown)
-    {
+	{
 		STDMETHOD(SetBoundingBox) (THIS_
-					int x,
-					int y,
-					int width,
-					int height
-					) PURE;	
-    };
+			int x,
+			int y,
+			int width,
+			int height
+			) PURE;	
+
+		STDMETHOD(GetBoundingBox) (THIS_
+			RECT *r
+			) PURE;	
+
+		STDMETHOD(Grab) (THIS_
+			IVideoSourceFilter *s1,
+			IVideoSourceFilter *s2
+			) PURE;	
+
+		STDMETHOD(Flush)() PURE;	
+	};
 
 #ifdef __cplusplus
 }

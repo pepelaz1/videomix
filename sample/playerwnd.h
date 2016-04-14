@@ -21,10 +21,16 @@ public:
 private:
 	CPlayer *m_player;
 	CPoint m_ptStart;
+	CPoint m_ptDragStart;
 	CPoint m_ptEnd;
+	BOOL m_bIsDragging;
+
+	CPoint &MapPoint(CPoint &pt, RECT &r);
 public:
 	void SetPlayer(CPlayer *player);	
 	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
+	afx_msg void OnRButtonDown(UINT nFlags, CPoint point);
+	afx_msg void OnRButtonUp(UINT nFlags, CPoint point);
 };
 
 

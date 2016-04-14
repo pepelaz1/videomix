@@ -58,6 +58,7 @@ typedef signed char yuvType ;
 using namespace std;
 
 #include "IVIdeoMixingFilter.h"
+#include "../srcfilter/IVIdeoSourceFilter.h"
 
 // Forward declarations
 class PicConcatBase;
@@ -98,8 +99,11 @@ public:
 	/// Overridden from VideoMixingBase 
 	virtual HRESULT SetOutputDimensions(BITMAPINFOHEADER* pBmih1, BITMAPINFOHEADER* pBmih2);
 
+	virtual HRESULT BeforeReceive();
+
 	virtual STDMETHODIMP BeginFlush(int nIndex);
 	virtual STDMETHODIMP EndFlush(int nIndex);
+	STDMETHODIMP Pause();
 
 	HRESULT GenerateOutputSample(IMediaSample *pSample, int nIndex);
 	virtual HRESULT StopStreaming();
@@ -144,6 +148,9 @@ public:
 
 	// IVideoMixingFilter
 	STDMETHODIMP SetBoundingBox (int x, int y,int width,int height);
+	STDMETHODIMP GetBoundingBox (RECT *r);
+	STDMETHODIMP Grab (IVideoSourceFilter *s1, IVideoSourceFilter *s2);
+	STDMETHODIMP Flush();
 
 private:
 
@@ -166,6 +173,9 @@ private:
 	list<BYTE *>m_SecondQueue;
 	CCritSec m_QueuesLock;
 	void ClearQueues();
+	BOOL m_flush;
+
+	BYTE *m_FirstBuff, *m_SecondBuff;
 
 	// Bounding box stuff
 	CCritSec m_csBBox;
@@ -174,4 +184,6 @@ private:
 	int m_nBBoxY;
 	int m_nBBoxWidth;
 	int m_nBBoxHeight;
+
+
 };

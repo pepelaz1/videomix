@@ -51,6 +51,7 @@ public:
 	/// The user must also decide on how the output of the filter is regulated.
 	virtual HRESULT ReceiveFirstSample(IMediaSample *pSample) = 0;
 	virtual HRESULT ReceiveSecondSample(IMediaSample *pSample) = 0;
+	virtual HRESULT BeforeReceive() = 0;
 
 	/// This method allows the subclass to create the appropriate video mixer based on the input media types
 	/// Implementations that do not require this functionality should return S_OK;

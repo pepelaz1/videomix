@@ -77,6 +77,7 @@ void CSampleDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_FILE_STATIC7, m_stcBBoxHeight);
 	DDX_Control(pDX, IDC_BBOX_HEIGHT_EDIT, m_edtBBoxHeight);
 	DDX_Control(pDX, IDC_STEP_BTN2, m_btnBBoxSet);
+	DDX_Control(pDX, IDC_CHECK2, m_cbLoop);
 }
 
 BEGIN_MESSAGE_MAP(CSampleDlg, CDialogEx)
@@ -96,11 +97,42 @@ BEGIN_MESSAGE_MAP(CSampleDlg, CDialogEx)
 	ON_WM_RBUTTONUP()
 	ON_WM_TIMER()
 	ON_NOTIFY(NM_RELEASEDCAPTURE, IDC_SLIDER1, &CSampleDlg::OnNMReleasedcaptureSlider1)
-ON_BN_CLICKED(IDC_BROWSE_BTN2, &CSampleDlg::OnBnClickedBrowseBtn2)
-ON_BN_CLICKED(IDC_STEP_BTN, &CSampleDlg::OnBnClickedStepBtn)
-ON_BN_CLICKED(IDC_STEP_BTN2, &CSampleDlg::OnBnClickedStepBtn2)
+	ON_BN_CLICKED(IDC_BROWSE_BTN2, &CSampleDlg::OnBnClickedBrowseBtn2)
+	ON_BN_CLICKED(IDC_STEP_BTN, &CSampleDlg::OnBnClickedStepBtn)
+	ON_BN_CLICKED(IDC_STEP_BTN2, &CSampleDlg::OnBnClickedStepBtn2)
+
+	ON_WM_KILLFOCUS()
+	ON_WM_KEYDOWN()
+	ON_WM_PARENTNOTIFY()
 END_MESSAGE_MAP()
 
+void handlerPlay(void *param)
+{
+	CSampleDlg *dlg= (CSampleDlg *)param;
+	if (dlg)
+		dlg->Play();
+}
+
+void handlerPause(void *param)
+{
+	CSampleDlg *dlg= (CSampleDlg *)param;
+	if (dlg)
+		dlg->Pause();
+}
+
+void handlerStop(void *param)
+{
+	CSampleDlg *dlg= (CSampleDlg *)param;
+	if (dlg)
+		dlg->Stop();
+}
+
+void handlerStep(void *param)
+{
+	CSampleDlg *dlg= (CSampleDlg *)param;
+	if (dlg)
+		dlg->Step();
+}
 
 // CSampleDlg message handlers
 
@@ -138,8 +170,11 @@ BOOL CSampleDlg::OnInitDialog()
 	GetClientRect(&clrect);
 	m_playerWnd.Create(_T("STATIC"), L"", WS_CHILD | WS_VISIBLE | SS_NOTIFY,
 		CRect(clrect.left+10, clrect.top+10, clrect.right-10, clrect.bottom-125), this, 1234);
-
 	m_playerWnd.SetPlayer(&m_player);
+
+	m_playerWnd_p.Create(_T("STATIC"), L"", WS_CHILD | WS_VISIBLE | SS_NOTIFY,
+		CRect(clrect.left+10, clrect.top+10, clrect.right-10, clrect.bottom-125), this, 1234);
+	m_playerWnd_p.SetPlayer(&m_player);
 
 	m_btnPlay.EnableWindow(TRUE);
 	m_btnPause.EnableWindow(FALSE);
@@ -154,16 +189,24 @@ BOOL CSampleDlg::OnInitDialog()
 	m_edtBBoxWidth.SetWindowText(L"100");
 	m_edtBBoxHeight.SetWindowText(L"100");
 
+//	RegisterHotKey(NULL,0,0,'Q');
+//	RegisterHotKey(m_hWnd,0,0,'W');
+//	RegisterHotKey(m_hWnd,0,0,'E');
+//	RegisterHotKey(m_hWnd,0,0,'R');
+	//int id = 0;
+	//m_hk.InsertHandler(0,'Q',handlerPlay,id);
+	//m_hk.InsertHandler(0,'W',handlerPause,id);
+	//m_hk.InsertHandler(0,'E',handlerStop,id);
+	//m_hk.InsertHandler(0,'R',handlerStep,id);
+	//m_hk.Start(this);
 
+	m_cbLoop.SetCheck(TRUE);
 	//InitPlayer();
 
 	m_slider.SetRange(0,100);
-	SetTimer(1,1000, NULL);
-	SetTimer(2,500, NULL);
-	SetTimer(3,5000, NULL);
-
-	
-	return TRUE;  // return TRUE  unless you set the focus to a control
+	SetTimer(1,300, NULL);
+	m_slider.SetFocus();
+	return TRUE; 
 }
 
 void CSampleDlg::InitPlayer()
@@ -180,7 +223,7 @@ void CSampleDlg::InitPlayer()
 //	filename2 = "D:\\video\\Kiteshop_1Mbps.mp4";
 
 	m_player.SetFile(filename1.GetBuffer(), filename2.GetBuffer());
-	HRESULT hr = m_player.Init(m_playerWnd.m_hWnd);
+	HRESULT hr = m_player.Init(m_playerWnd.m_hWnd, m_playerWnd_p.m_hWnd);
 	if (FAILED(hr))
 	{
 		CString errmsg = L"Failed build graph ";
@@ -243,9 +286,19 @@ HBRUSH CSampleDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 }
 
 
-void CSampleDlg::OnBnClickedPlayBtn()
-{
+void CSampleDlg::Play()
+{	
 	m_player.Play();
+	//m_player.SwitchVW(TRUE);
+	m_playerWnd_p.ShowWindow(SW_HIDE);
+	m_playerWnd.ShowWindow(SW_SHOW);
+	
+	///RECT r;
+	//GetClientRect(&r);
+	//m_playerWnd_p.MoveWindow(0,0,1,1,TRUE);
+	//m_playerWnd.MoveWindow(r.left+10, r.top+10, r.right-20, r.bottom-135);
+	
+
 	m_btnPlay.EnableWindow(FALSE);
 	m_btnPause.EnableWindow(TRUE);
 	m_btnStop.EnableWindow(TRUE);
@@ -256,10 +309,36 @@ void CSampleDlg::OnBnClickedPlayBtn()
 	m_btnBrowse2.EnableWindow(FALSE);
 }
 
-
-void CSampleDlg::OnBnClickedPauseBtn()
+void CSampleDlg::OnBnClickedPlayBtn()
 {
+	Play();	
+	SetFocus(); //mf added
+}
+
+void CSampleDlg::Pause()
+{
+	//m_playerWnd.ShowWindow(SW_SHOW);
+	//m_playerWnd_p.ShowWindow(SW_SHOW);
+	//m_playerWnd_p.UpdateWindow();
+
 	m_player.Pause();
+
+	RECT r;
+	GetClientRect(&r);
+
+	//m_playerWnd.MoveWindow(0,0,1,1,TRUE);
+	//m_playerWnd_p.MoveWindow(r.left+10, r.top+10, r.right-20, r.bottom-135);
+
+	m_playerWnd.ShowWindow(SW_HIDE);
+	m_playerWnd_p.ShowWindow(SW_SHOW);
+	//m_player.SwitchVW(FALSE);
+
+
+
+
+	//m_playerWnd.UpdateWindow();
+	//m_playerWnd_p.UpdateWindow();
+
 	m_btnPlay.EnableWindow(TRUE);
 	m_btnPause.EnableWindow(FALSE);
 	m_btnStep.EnableWindow(TRUE);
@@ -270,11 +349,21 @@ void CSampleDlg::OnBnClickedPauseBtn()
 	m_btnBrowse2.EnableWindow(FALSE);
 }
 
+void CSampleDlg::OnBnClickedPauseBtn()
+{
+	Pause();
+	SetFocus(); //mf added
+}
 
 
-void CSampleDlg::OnBnClickedStopBtn()
+void CSampleDlg::Stop()
 {
 	m_player.Stop();
+
+	//m_playerWnd_p.ShowWindow(SW_HIDE);
+	//m_playerWnd.ShowWindow(SW_HIDE);
+	//m_playerWnd.UpdateWindow();
+
 	m_btnPlay.EnableWindow(TRUE);
 	m_btnPause.EnableWindow(FALSE);
 	m_btnStop.EnableWindow(FALSE);
@@ -285,11 +374,26 @@ void CSampleDlg::OnBnClickedStopBtn()
 	m_btnBrowse2.EnableWindow(TRUE);
 }
 
+void CSampleDlg::OnBnClickedStopBtn()
+{
+	Stop();
+	SetFocus(); //mf added
+}
+
+void CSampleDlg::Step()
+{
+	m_player.StepForward();
+	
+	m_playerWnd.ShowWindow(SW_HIDE);
+	m_playerWnd_p.ShowWindow(SW_SHOW);
+	
+	m_btnPlay.EnableWindow(TRUE);
+}
 
 void CSampleDlg::OnBnClickedStepBtn()
 {
-	m_player.StepForward();
-	m_btnPlay.EnableWindow(TRUE);
+	Step();
+	SetFocus(); //mf added
 }
 
 
@@ -306,12 +410,14 @@ void CSampleDlg::MoveControls()
 	GetClientRect(&r);
 
 	if (m_playerWnd.m_hWnd)
-	{
 		m_playerWnd.MoveWindow(r.left+10, r.top+10, r.right-20, r.bottom-135);
-	//	m_playerWndveWindow(r.left+10, r.top+10, r.right-20, r.bottom-135);
 
-	}
+	if (m_playerWnd_p.m_hWnd)
+		m_playerWnd_p.MoveWindow(r.left+10, r.top+10, r.right-20, r.bottom-135);
+
 	m_player.UpdateVWPos();
+	m_player.UpdateVWPos_p();
+	
 	
 	CRect r1;
 	if (m_btnPlay.m_hWnd != NULL)
@@ -393,10 +499,17 @@ void CSampleDlg::MoveControls()
 	if (m_slider.m_hWnd)
 	{
 		m_slider.GetClientRect(&r1);
-		r1.SetRect(260,r.bottom - 118, r.right-nn, r.bottom - 93);
+		r1.SetRect(308,r.bottom - 118, r.right-nn, r.bottom - 93);
 		m_slider.MoveWindow(&r1);
 	}
 	
+	if (m_cbLoop.m_hWnd)
+	{
+		m_cbLoop.GetClientRect(&r1);
+		r1.SetRect(260,r.bottom - 116, 305, r.bottom - 93);
+		m_cbLoop.MoveWindow(&r1);
+	}
+
 	if (m_stcBBox.m_hWnd)
 	{
 		m_stcBBox.GetClientRect(&r1);
@@ -540,33 +653,31 @@ void CSampleDlg::OnTimer(UINT_PTR nTimerID)
 	{		
 		if ( nTimerID == 1 )
 		{
-			/*int acnt = m_player.GetAudioTracksCount();
-			if (acnt > 0 && m_cmbAudio.GetCount() == 0)
-			{
-				PopulateComboboxes();
-				UpdateComboboxes();
-			}*/
-
 			LONGLONG position = m_player.GetPosition();
+			if (m_cbLoop.GetCheck() == TRUE && position >= duration)
+			{
+				m_player.Stop();
+				m_player.Play();
+			}
 			m_slider.SetPos( (int)(position * 100.0f / duration) );
 
 			char str[MAX_PATH];
 			sprintf_s(str,MAX_PATH, "CSampleDlg::OnTimer position = %I64d, duration = %I64d lbutton state=%d\n", position , duration);
 			//OutputDebugStringA(str);
+			
+			UpdateBBoxControls();
 		}
-
-	/*	if ( nTimerID == 2 )
-		{
-			LONGLONG newpos = rand() * duration / RAND_MAX;
-			m_player.SetPosition(newpos);
-		}
-
-		if ( nTimerID == 3 )
-		{
-			m_player.Stop();
-			m_player.Play();
-		}*/
 	}
+}
+
+void  CSampleDlg::UpdateBBoxControls()
+{
+	RECT r;
+	m_player.GetBBox(r);
+	SetDlgItemInt(IDC_BBOX_X_EDIT, r.left);
+	SetDlgItemInt(IDC_BBOX_Y_EDIT, r.top);
+	SetDlgItemInt(IDC_BBOX_WIDTH_EDIT, r.right - r.left);
+	SetDlgItemInt(IDC_BBOX_HEIGHT_EDIT,  r.bottom - r.top);
 }
 
 void CSampleDlg::OnNMReleasedcaptureSlider1(NMHDR *pNMHDR, LRESULT *pResult)
@@ -587,3 +698,46 @@ void CSampleDlg::OnBnClickedStepBtn2()
 	m_player.SetBoundingBox(GetDlgItemInt(IDC_BBOX_X_EDIT), GetDlgItemInt(IDC_BBOX_Y_EDIT),
 		GetDlgItemInt(IDC_BBOX_WIDTH_EDIT), GetDlgItemInt(IDC_BBOX_HEIGHT_EDIT));
 }
+
+
+
+
+BOOL CSampleDlg::PreTranslateMessage(MSG* pMsg)
+{
+	
+	if (pMsg->message == WM_KEYDOWN)
+	{
+		OnHotKey(pMsg);
+		SetFocus();
+		return true; //mf added
+	}
+	
+	return CDialogEx::PreTranslateMessage(pMsg);
+	
+}
+
+
+void  CSampleDlg::OnHotKey(MSG *pMsg)
+{
+	//if ( this == GetForegroundWindow())
+	//{
+		if (pMsg->wParam == 'Q')
+		{
+			Play();
+		}
+		else if (pMsg->wParam== 'W')
+		{
+			Pause();
+		}
+		else if (pMsg->wParam == 'E')
+		{
+			Stop();
+		}
+		else if (pMsg->wParam== 'R')
+		{
+			Step();
+		}
+	//}
+}
+
+
