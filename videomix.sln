@@ -2,14 +2,16 @@
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VideoMixerApp", "sample\sample.vcxproj", "{952AE492-370F-4DBB-A4C9-C23E231EB96C}"
+	ProjectSection(ProjectDependencies) = postProject
+		{39469123-3EB7-45F3-A15B-3854DFD2C2EB} = {39469123-3EB7-45F3-A15B-3854DFD2C2EB}
+		{35B95D64-36AA-45DF-AF32-8ABED588AECE} = {35B95D64-36AA-45DF-AF32-8ABED588AECE}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VideoMixingFilter", "mixerfilter\VideoMixingFilter.vcxproj", "{35B95D64-36AA-45DF-AF32-8ABED588AECE}"
 EndProject
 Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "VideoMixerApp Installer", "VideoMixerInstaller\VideoMixerInstaller.vdproj", "{FB1E79F4-9FF9-46F7-A14C-B217C471ABB6}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VideoSourceFilter", "srcfilter\VideoSourceFilter.vcxproj", "{39469123-3EB7-45F3-A15B-3854DFD2C2EB}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BaseClasses", "..\..\Program Files\Microsoft SDKs\Windows\v7.1\Samples\multimedia\directshow\baseclasses\BaseClasses.vcxproj", "{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -105,30 +107,6 @@ Global
 		{39469123-3EB7-45F3-A15B-3854DFD2C2EB}.Release2|Win32.ActiveCfg = Release|x64
 		{39469123-3EB7-45F3-A15B-3854DFD2C2EB}.Release2|x64.ActiveCfg = Release|x64
 		{39469123-3EB7-45F3-A15B-3854DFD2C2EB}.Release2|x64.Build.0 = Release|x64
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Debug_MBCS|Win32.ActiveCfg = Debug_MBCS|Win32
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Debug_MBCS|Win32.Build.0 = Debug_MBCS|Win32
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Debug_MBCS|x64.ActiveCfg = Debug_MBCS|x64
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Debug_MBCS|x64.Build.0 = Debug_MBCS|x64
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Debug|Win32.ActiveCfg = Debug|Win32
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Debug|Win32.Build.0 = Debug|Win32
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Debug|x64.ActiveCfg = Debug|x64
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Debug|x64.Build.0 = Debug|x64
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Debug2|Win32.ActiveCfg = Debug2|Win32
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Debug2|Win32.Build.0 = Debug2|Win32
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Debug2|x64.ActiveCfg = Debug2|x64
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Debug2|x64.Build.0 = Debug2|x64
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Release_MBCS|Win32.ActiveCfg = Release_MBCS|Win32
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Release_MBCS|Win32.Build.0 = Release_MBCS|Win32
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Release_MBCS|x64.ActiveCfg = Release_MBCS|x64
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Release_MBCS|x64.Build.0 = Release_MBCS|x64
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Release|Win32.ActiveCfg = Release|Win32
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Release|Win32.Build.0 = Release|Win32
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Release|x64.ActiveCfg = Release|x64
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Release|x64.Build.0 = Release|x64
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Release2|Win32.ActiveCfg = Release2|Win32
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Release2|Win32.Build.0 = Release2|Win32
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Release2|x64.ActiveCfg = Release2|x64
-		{E8A3F6FA-AE1C-4C8E-A0B6-9C8480324EAA}.Release2|x64.Build.0 = Release2|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

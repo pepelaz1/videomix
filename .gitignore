@@ -6,3 +6,5 @@ mixerfilter/Release/
 sample/Debug/
 sample/Release/
 test/
+ipch/
+srcfilter/Release/

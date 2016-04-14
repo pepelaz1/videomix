@@ -133,7 +133,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <TargetMachine>MachineX86</TargetMachine>
-      <AdditionalLibraryDirectories>C:\Program Files\Microsoft SDKs\Windows\v7.1\Samples\multimedia\directshow\baseclasses\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Program Files\Microsoft SDKs\Windows\v7.1\Samples\multimedia\directshow\baseclasses\Release2010;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <OutputFile>..\bin\$(ProjectName).dll</OutputFile>
       <IgnoreSpecificDefaultLibraries>Msvcrt.lib</IgnoreSpecificDefaultLibraries>
     </Link>
