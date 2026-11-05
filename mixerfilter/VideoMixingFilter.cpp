@@ -67,13 +67,13 @@ VideoMixingFilter::~VideoMixingFilter()
 
 	if (m_FirstBuff) 
 	{
-		delete m_FirstBuff;
+		delete[] m_FirstBuff;
 		m_FirstBuff = NULL;
 	}
 
 	if (m_SecondBuff) 
 	{
-		delete m_SecondBuff;
+		delete[] m_SecondBuff;
 		m_SecondBuff = NULL;
 	}
 }
@@ -84,7 +84,7 @@ void VideoMixingFilter::ClearQueues()
 	while (m_FirstQueue.size() > 0)
 	{
 		BYTE *p = m_FirstQueue.front();
-		delete p;
+		delete[] p;
 		m_FirstQueue.pop_front();
 	}
 	m_FirstQueue.clear();
@@ -92,7 +92,7 @@ void VideoMixingFilter::ClearQueues()
 	while (m_SecondQueue.size() > 0)
 	{
 		BYTE *p = m_SecondQueue.front();
-		delete p;
+		delete[] p;
 		m_SecondQueue.pop_front();
 	}
 	m_SecondQueue.clear();
@@ -157,7 +157,9 @@ void VideoMixingFilter::DoBoundingBoxCompositeOverwrite(BYTE* pImgBB, BYTE* pImg
 	int video_width = m_nOutputWidth;
 	int video_height = m_nOutputHeight;
 
-	if ( start_y + height_bb >= m_nOutputHeight-1)
+	if (start_x < 0 || start_y < 0 || width_bb < 2 || height_bb < 1 ||
+		start_x + width_bb >= m_nOutputWidth ||
+		start_y + height_bb >= m_nOutputHeight - 1)
 		return;
 
 	int x = 0;
@@ -326,7 +328,7 @@ HRESULT VideoMixingFilter::GenerateOutputSample(IMediaSample *pSample, int nInde
 				m_FirstBuff = new BYTE[(int)(m_nBytesPerPixel*m_nOutputWidth*m_nOutputHeight)];
 			memcpy(m_FirstBuff,pb,m_nBytesPerPixel*m_nOutputWidth*m_nOutputHeight);
 			m_FirstQueue.pop_front();	
-			delete pb;
+			delete[] pb;
 		}
 
 		if (m_SecondQueue.size() > 0)
@@ -336,7 +338,7 @@ HRESULT VideoMixingFilter::GenerateOutputSample(IMediaSample *pSample, int nInde
 				m_SecondBuff = new BYTE[(int)(m_nBytesPerPixel*m_nOutputWidth*m_nOutputHeight)];
 			memcpy(m_SecondBuff,pb,m_nBytesPerPixel*m_nOutputWidth*m_nOutputHeight);
 			m_SecondQueue.pop_front();	
-			delete pb;
+			delete[] pb;
 		}
 
 		//if (nIndex == 0)
@@ -433,13 +435,13 @@ HRESULT VideoMixingFilter::StopStreaming()
 	
 	if (m_FirstBuff)
 	{
-		delete m_FirstBuff;
+		delete[] m_FirstBuff;
 		m_FirstBuff = NULL;
 	}
 
 	if (m_SecondBuff)
 	{
-		delete m_SecondBuff;
+		delete[] m_SecondBuff;
 		m_SecondBuff = NULL;
 	}
 	
@@ -509,6 +511,11 @@ HRESULT VideoMixingFilter::ReceiveFirstSample( IMediaSample *pSample )
 		BYTE *buff = new BYTE[m_nSampleSizes[0]];
 		memcpy(buff, pBuffer, m_nSampleSizes[0]);
 		m_FirstQueue.push_back(buff);
+		while (m_FirstQueue.size() > 4)
+		{
+			delete[] m_FirstQueue.front();
+			m_FirstQueue.pop_front();
+		}
 		
 		wchar_t str[256];
 		wsprintf(str,L"first - first queue size = %d, second_queue_size = %d\n", m_FirstQueue.size(),m_SecondQueue.size() );
@@ -558,6 +565,11 @@ HRESULT VideoMixingFilter::ReceiveSecondSample( IMediaSample *pSample )
 		BYTE *buff = new BYTE[m_nSampleSizes[1]];
 		memcpy(buff, pBuffer, m_nSampleSizes[1]);
 		m_SecondQueue.push_back(buff);
+		while (m_SecondQueue.size() > 4)
+		{
+			delete[] m_SecondQueue.front();
+			m_SecondQueue.pop_front();
+		}
 	
 		//wchar_t str[256];
 		//wsprintf(str,L"second - first queue size = %d, second_queue_size = %d\n", m_FirstQueue.size(),m_SecondQueue.size() );
