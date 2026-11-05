@@ -5,8 +5,51 @@
 #include "../mixerfilter/IVideoMixingFilter.h"
 #include "../srcfilter/IVideoSourceFilter.h"
 
+HRESULT CPlayer::CheckGraphStep(LPCWSTR stage, HRESULT hr)
+{
+	SYSTEMTIME now;
+	GetLocalTime(&now);
+	CString line;
+	line.Format(L"%04u-%02u-%02u %02u:%02u:%02u  %-32s  0x%08X\r\n",
+		now.wYear, now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond,
+		stage, static_cast<unsigned int>(hr));
+	OutputDebugStringW(line);
+
+	WCHAR modulePath[MAX_PATH] = {};
+	if (GetModuleFileNameW(NULL, modulePath, MAX_PATH))
+	{
+		CString logPath(modulePath);
+		const int separator = logPath.ReverseFind(L'\\');
+		if (separator >= 0)
+		{
+			logPath = logPath.Left(separator + 1) + L"VideoMixerApp-graph.log";
+			HANDLE file = CreateFileW(logPath, FILE_APPEND_DATA,
+				FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS,
+				FILE_ATTRIBUTE_NORMAL, NULL);
+			if (file != INVALID_HANDLE_VALUE)
+			{
+				const int byteCount = WideCharToMultiByte(CP_UTF8, 0, line,
+					line.GetLength(), NULL, 0, NULL, NULL);
+				if (byteCount > 0)
+				{
+					std::string bytes(byteCount, '\0');
+					WideCharToMultiByte(CP_UTF8, 0, line, line.GetLength(),
+						&bytes[0], byteCount, NULL, NULL);
+					DWORD written = 0;
+					WriteFile(file, bytes.data(), byteCount, &written, NULL);
+				}
+				CloseHandle(file);
+			}
+		}
+	}
+
+	if (FAILED(hr))
+		m_lastGraphStage = stage;
+	return hr;
+}
+
 CPlayer::CPlayer() :
-	m_owner(NULL), m_owner_p(NULL), m_vmix(NULL), m_vdc(NULL), m_vmix_p(NULL), m_vdc_p(NULL)
+	m_owner(NULL), m_rot(0), m_owner_p(NULL), m_vmix(NULL), m_vdc(NULL), m_vmix_p(NULL), m_vdc_p(NULL)
 {
 	ZeroMemory(m_file1, MAX_PATH);
 	ZeroMemory(m_file2, MAX_PATH);
@@ -19,69 +62,71 @@ CPlayer::~CPlayer()
 HRESULT CPlayer::Init(HWND owner, HWND owner_p)
 {
 	HRESULT hr = S_OK;
+	m_lastGraphStage.Empty();
+	CheckGraphStep(L"Starting graph build", S_OK);
 	Reset();
 
 	m_owner = owner;
 	m_owner_p = owner_p;
 		
 	hr = m_gb.CoCreateInstance(CLSID_FilterGraph);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Create main FilterGraph", hr)))
 		return hr;
 
 	hr = AddFilter(CLSID_LAV_Splitter_Source, L"File Source 1", m_src1, m_gb); 
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Add file source 1", hr)))
 		return hr;
 
 	CComPtr<IFileSourceFilter>src1;
 	hr = m_src1.QueryInterface(&src1);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Query file source 1", hr)))
 		return hr;
 
 	hr = src1->Load(m_file1, NULL);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Load file 1", hr)))
 		return hr;
 
 	src1.Release();
 		
 	hr = AddFilter(CLSID_LAV_Splitter_Source, L"File Source 2", m_src2, m_gb); 
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Add file source 2", hr)))
 		return hr;
 	
 	CComPtr<IFileSourceFilter>src2;
 	hr = m_src2.QueryInterface(&src2);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Query file source 2", hr)))
 		return hr;
 
 	hr = src2->Load(m_file2, NULL);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Load file 2", hr)))
 		return hr;
 
 	src2.Release();
 
 	hr = AddFilter(CLSID_LAV_Video_Decoder, L"LAV 1", m_lav1, m_gb); 
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Add LAV decoder 1", hr)))
 		return hr;
 
 	hr = AddFilter(CLSID_LAV_Video_Decoder, L"LAV 2", m_lav2, m_gb); 
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Add LAV decoder 2", hr)))
 		return hr;
 
 	hr = AddFilter(CLSID_VideoMixingFilter, L"Video Mixing Filter", m_vmix, m_gb); 
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Add mixing filter", hr)))
 		return hr;
 
 	hr = Connect(m_src1, m_lav1, m_gb);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Connect source 1 to decoder 1", hr)))
 		return hr;
 
 	hr = Connect(m_src2, m_lav2, m_gb);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Connect source 2 to decoder 2", hr)))
 		return hr;
 	
 	//hr = Connect(m_ffdshow1, m_vmix);
 	//hr = Connect(m_lav1, m_vmix);
 	hr = m_gb->ConnectDirect(GetPin(m_lav1, L"Output"), GetPin(m_vmix, L"Input 0"),NULL);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Connect decoder 1 to mixer input 0", hr)))
 		return hr;
 
 	///////////////////////////////
@@ -90,63 +135,63 @@ HRESULT CPlayer::Init(HWND owner, HWND owner_p)
 	//hr = Connect(m_ffdshow2, m_vmix);
 	//hr = Connect(m_lav2, m_vmix);
 	hr = m_gb->ConnectDirect(GetPin(m_lav2, L"Output"), GetPin(m_vmix, L"Input 1"),NULL);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Connect decoder 2 to mixer input 1", hr)))
 		return hr;
 
 	hr = AddFilter(CLSID_EnhancedVideoRenderer, L"Enchanced Video Renderer", m_evr, m_gb); 
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Add main EVR", hr)))
 		return hr;
 
 	hr = Connect(m_vmix, m_evr, m_gb);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Connect mixer to main EVR", hr)))
 		return hr;
 
 	AddToRot(m_gb,&m_rot);
 
 	hr = m_gb.QueryInterface(&m_mc);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Query main IMediaControl", hr)))
 		return hr;
 
 	hr = m_gb.QueryInterface(&m_ms);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Query main IMediaSeeking", hr)))
 		return hr;
 
 	hr = m_gb.QueryInterface(&m_vfs);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Query main IVideoFrameStep", hr)))
 		return hr;
 
 	hr = m_evr.QueryInterface(&m_gs);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Query main EVR service", hr)))
 		return hr;
 
 	hr = m_gs->GetService(MR_VIDEO_RENDER_SERVICE, IID_IMFVideoDisplayControl, (void **)&m_vdc);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Get main video display", hr)))
 		return hr;
 
 	hr = m_gs->GetService(MR_VIDEO_RENDER_SERVICE, IID_IMFVideoPresenter, (void **)&m_vp);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Get main video presenter", hr)))
 		return hr;
 
 	TuneVideoWindow();
 
 	// Second graph
 	hr = m_gb_p.CoCreateInstance(CLSID_FilterGraph);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Create pause FilterGraph", hr)))
 		return hr;
 
 	hr = AddFilter(CLSID_VideoSourceFilter, L"Image Source 1", m_src1_p, m_gb_p); 
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Add pause source 1", hr)))
 		return hr;
 
 	hr = AddFilter(CLSID_VideoSourceFilter, L"Image Source 2", m_src2_p, m_gb_p); 
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Add pause source 2", hr)))
 		return hr;
 
 	SetVideoParams_p(m_src1_p, m_vdc);
 	SetVideoParams_p(m_src2_p, m_vdc);
 
 	hr = AddFilter(CLSID_VideoMixingFilter, L"Video Mixing Filter (Pause)", m_vmix_p, m_gb_p); 
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Add pause mixing filter", hr)))
 		return hr;
 
 	//hr = Connect(m_src1_p, m_vmix_p, m_gb_p);
@@ -154,7 +199,7 @@ HRESULT CPlayer::Init(HWND owner, HWND owner_p)
 	//	return hr;
 
 	hr = m_gb_p->ConnectDirect(GetPin(m_src1_p, L"Out"), GetPin(m_vmix_p, L"Input 0"),NULL);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Connect pause source 1 to mixer input 0", hr)))
 		return hr;
 
 	//hr = Connect(m_src2_p, m_vmix_p, m_gb_p);
@@ -162,37 +207,38 @@ HRESULT CPlayer::Init(HWND owner, HWND owner_p)
 	//	return hr;
 
 	hr = m_gb_p->ConnectDirect(GetPin(m_src2_p, L"Out"), GetPin(m_vmix_p, L"Input 1"),NULL);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Connect pause source 2 to mixer input 1", hr)))
 		return hr;
 
 	hr = AddFilter(CLSID_EnhancedVideoRenderer, L"Enchanced Video Renderer (Pause)", m_evr_p, m_gb_p); 
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Add pause EVR", hr)))
 		return hr;
 
 	hr = Connect(m_vmix_p, m_evr_p, m_gb_p);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Connect pause mixer to EVR", hr)))
 		return hr;
 
 	hr = m_gb_p.QueryInterface(&m_mc_p);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Query pause IMediaControl", hr)))
 		return hr;
 
 	hr = m_evr_p.QueryInterface(&m_gs_p);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Query pause EVR service", hr)))
 		return hr;
 
 	hr = m_gs_p->GetService(MR_VIDEO_RENDER_SERVICE, IID_IMFVideoDisplayControl, (void **)&m_vdc_p);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Get pause video display", hr)))
 		return hr;
 
 	hr = m_gs_p->GetService(MR_VIDEO_RENDER_SERVICE, IID_IMFVideoPresenter, (void **)&m_vp_p);
-	if (FAILED(hr))
+	if (FAILED(CheckGraphStep(L"Get pause video presenter", hr)))
 		return hr;
 
 
 	m_vdc_p->SetVideoWindow(m_owner_p);
 	UpdateVWPos_p();
 
+	CheckGraphStep(L"Graph build complete", S_OK);
 	return hr;
 }
 
@@ -272,7 +318,11 @@ void CPlayer::Grab()
 
 void CPlayer::Reset()
 {
-	RemoveFromRot(m_rot);
+	if (m_rot)
+	{
+		RemoveFromRot(m_rot);
+		m_rot = 0;
+	}
 	if (m_mc) m_mc.Release();
 	if (m_ms) m_ms.Release();
 	if (m_gs) m_gs.Release();
@@ -312,19 +362,21 @@ HRESULT CPlayer::Play()
 {
 	HRESULT hr = S_OK;
 	if (!m_mc)
-		return S_FALSE;
+		return CheckGraphStep(L"Play without main graph", E_UNEXPECTED);
 
 	
 	
 	//RefreshBBox(m_vmix, m_vmix_p);
 
 	hr = m_mc->Run();
+	CheckGraphStep(L"Run main graph", hr);
 	if (FAILED(hr))
 		return hr;
 
 	Sleep(1000);
 
 	hr = m_mc_p->Stop();
+	CheckGraphStep(L"Stop pause graph", hr);
 	if (FAILED(hr))
 		return hr;
 
@@ -422,9 +474,65 @@ HRESULT CPlayer::AddFilter(const GUID &guid, LPWSTR name, CComPtr<IBaseFilter> &
 {
 	HRESULT hr = S_OK;
 	CComPtr<IBaseFilter> flt;
-	hr = flt.CoCreateInstance(guid);
-	if (FAILED(hr))
-		return hr;
+	// Keep bundled filter modules loaded for the lifetime of the application.
+	// This lets the demo work even when its per-user COM registration is unavailable.
+	static HMODULE bundledModules[4] = {};
+	static const LPCWSTR bundledNames[4] = {
+		L"LAVSplitter.ax", L"LAVVideo.ax",
+		L"VideoMixingFilter-modern.dll", L"VideoSourceFilter.dll"
+	};
+	int bundledIndex = -1;
+	if (IsEqualGUID(guid, CLSID_LAV_Splitter_Source)) bundledIndex = 0;
+	else if (IsEqualGUID(guid, CLSID_LAV_Video_Decoder)) bundledIndex = 1;
+	else if (IsEqualGUID(guid, CLSID_VideoMixingFilter)) bundledIndex = 2;
+	else if (IsEqualGUID(guid, CLSID_VideoSourceFilter)) bundledIndex = 3;
+
+	if (bundledIndex >= 0)
+	{
+		WCHAR modulePath[MAX_PATH] = {};
+		const DWORD pathLength = GetModuleFileNameW(NULL, modulePath, MAX_PATH);
+		if (pathLength > 0 && pathLength < MAX_PATH)
+		{
+			CString dllPath(modulePath);
+			const int separator = dllPath.ReverseFind(L'\\');
+			if (separator >= 0)
+			{
+				dllPath = dllPath.Left(separator + 1) + bundledNames[bundledIndex];
+				if (!bundledModules[bundledIndex])
+					bundledModules[bundledIndex] = LoadLibraryW(dllPath);
+				if (bundledModules[bundledIndex])
+				{
+					CheckGraphStep(L"Load bundled filter", S_OK);
+					typedef HRESULT (STDAPICALLTYPE *GetClassObjectFn)(REFCLSID, REFIID, LPVOID*);
+					GetClassObjectFn getClassObject = reinterpret_cast<GetClassObjectFn>(
+						GetProcAddress(bundledModules[bundledIndex], "DllGetClassObject"));
+					if (getClassObject)
+					{
+						CComPtr<IClassFactory> factory;
+						hr = getClassObject(guid, IID_IClassFactory,
+							reinterpret_cast<void**>(&factory));
+						if (SUCCEEDED(hr))
+						{
+							IBaseFilter* instance = NULL;
+							hr = factory->CreateInstance(NULL, IID_IBaseFilter,
+								reinterpret_cast<void**>(&instance));
+							if (SUCCEEDED(hr)) flt.Attach(instance);
+						}
+						CheckGraphStep(L"Create bundled filter", hr);
+					}
+					else CheckGraphStep(L"Find bundled class factory", E_NOINTERFACE);
+				}
+				else CheckGraphStep(L"Load bundled filter", HRESULT_FROM_WIN32(GetLastError()));
+			}
+		}
+	}
+
+	if (!flt)
+	{
+		hr = flt.CoCreateInstance(guid);
+		CheckGraphStep(L"Create registered filter", hr);
+		if (FAILED(hr)) return hr;
+	}
 
 	filter = flt;
 
@@ -599,18 +707,21 @@ void CPlayer::SetBoundingBox(int x, int y, int width, int height)
 		SetBoundingBox(m_vmix_p,x,y,width,height);	
 }
 
-void  CPlayer::GetBoundingBox(RECT *r)
+bool CPlayer::GetBoundingBox(RECT *r)
 {
+	if (!r)
+		return false;
+	*r = RECT{};
 	if (m_vmix)
 	{
 		CComPtr<IVideoMixingFilter>pMix;
 		HRESULT hr = m_vmix->QueryInterface(IID_IVideoMixingFilter, (void **)&pMix);
 		if (SUCCEEDED(hr))
 		{
-			pMix->GetBoundingBox(r);
-			pMix.Release();
+			return SUCCEEDED(pMix->GetBoundingBox(r));
 		}
 	}
+	return false;
 }
 
 int  CPlayer::GetVideoWidth()
@@ -618,9 +729,11 @@ int  CPlayer::GetVideoWidth()
 	if (!m_vdc)
 		return -1;
 
-	SIZE dimensions;
-	SIZE ratio;
-	m_vdc->GetNativeVideoSize(&dimensions, &ratio);
+	SIZE dimensions = {};
+	SIZE ratio = {};
+	if (FAILED(m_vdc->GetNativeVideoSize(&dimensions, &ratio)) ||
+		dimensions.cx <= 0 || dimensions.cy <= 0)
+		return -1;
 	return dimensions.cx;
 }
 
@@ -629,24 +742,17 @@ int  CPlayer::GetVideoHeight()
 	if (!m_vdc)
 		return -1;
 
-	SIZE dimensions;
-	SIZE ratio;
-	m_vdc->GetNativeVideoSize(&dimensions, &ratio);
+	SIZE dimensions = {};
+	SIZE ratio = {};
+	if (FAILED(m_vdc->GetNativeVideoSize(&dimensions, &ratio)) ||
+		dimensions.cx <= 0 || dimensions.cy <= 0)
+		return -1;
 	return dimensions.cy;
 }
 
-void CPlayer::GetBBox(RECT &r)
+bool CPlayer::GetBBox(RECT &r)
 {
-	if (m_vmix)
-	{
-		CComPtr<IVideoMixingFilter>pMix;
-		HRESULT hr = m_vmix->QueryInterface(IID_IVideoMixingFilter, (void **)&pMix);
-		if (SUCCEEDED(hr))
-		{
-			pMix->GetBoundingBox(&r);
-			pMix.Release();
-		}
-	}
+	return GetBoundingBox(&r);
 }
 
 

@@ -24,8 +24,9 @@ private:
 	CPoint m_ptDragStart;
 	CPoint m_ptEnd;
 	BOOL m_bIsDragging;
+	BOOL m_bboxChangedDuringDrag;
 
-	CPoint &MapPoint(CPoint &pt, RECT &r);
+	bool MapPoint(const CPoint &point, CPoint &videoPoint);
 public:
 	void SetPlayer(CPlayer *player);	
 	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);

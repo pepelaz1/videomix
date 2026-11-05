@@ -30,6 +30,8 @@ using namespace std;
 class CPlayer
 {
 private:
+	CString m_lastGraphStage;
+	HRESULT CheckGraphStep(LPCWSTR stage, HRESULT hr);
 	HWND m_owner;
 
 	WCHAR m_file1[MAX_PATH];
@@ -82,6 +84,7 @@ private:
 public:
 	CPlayer();
 	~CPlayer();
+	CString GetLastGraphStage() const { return m_lastGraphStage; }
 
 	HRESULT Init(HWND owner, HWND owner_p);
 	void Reset();
@@ -100,9 +103,9 @@ public:
 	LONGLONG GetPosition();
 	void SetPosition(LONGLONG position);
 	void SetBoundingBox(int x, int y, int width, int height);
-	void GetBoundingBox(RECT *r);
+	bool GetBoundingBox(RECT *r);
 	int GetVideoWidth();
 	int GetVideoHeight();
-	void GetBBox(RECT &r);
+	bool GetBBox(RECT &r);
 };
 

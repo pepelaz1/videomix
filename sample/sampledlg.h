@@ -44,6 +44,7 @@ protected:
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
 	afx_msg void OnPaint();
 	afx_msg void OnTimer(UINT_PTR nTimerID);
+		afx_msg LRESULT OnPlayerBBoxChanged(WPARAM, LPARAM);
 	afx_msg HCURSOR OnQueryDragIcon();
 	afx_msg HBRUSH OnCtlColor(CDC* pDC,CWnd* pWnd, UINT nCtlColor);
 	DECLARE_MESSAGE_MAP()

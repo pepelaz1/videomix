@@ -11,7 +11,7 @@
 IMPLEMENT_DYNAMIC(CPlayerWindow, CWnd)
 
 CPlayerWindow::CPlayerWindow() 
-: m_ptStart(), m_ptEnd(), m_player(NULL), m_bIsDragging(FALSE)
+: m_ptStart(), m_ptEnd(), m_player(NULL), m_bIsDragging(FALSE), m_bboxChangedDuringDrag(FALSE)
 {
 
 }
@@ -74,134 +74,60 @@ void CPlayerWindow::OnPaint()
 
 void CPlayerWindow::OnLButtonDown(UINT nFlags, CPoint point)
 {
-	RECT r;
-	m_player->GetBoundingBox(&r);
-	CPoint pt = MapPoint(point, r);
-
-	CRect rr = r;
-	BOOL bb = rr.PtInRect(pt);
-	if (bb)
+	m_bboxChangedDuringDrag = FALSE;
+	RECT r = {};
+	CPoint videoPoint;
+	if (m_player && m_player->GetBoundingBox(&r) && MapPoint(point, videoPoint))
 	{
-		m_bIsDragging = true;
-		m_ptDragStart = pt;
-		SetCapture();
-	}
-	else
-	{
-		m_ptStart = point;
+		m_bIsDragging = CRect(r).PtInRect(videoPoint);
+		m_ptDragStart = videoPoint;
+		m_ptStart = videoPoint;
 		SetCapture();
 	}
 	CWnd::OnLButtonDown(nFlags, point);
-
 }
 
 
 void CPlayerWindow::OnMouseMove(UINT nFlags, CPoint point)
 {
-	if ( nFlags & MK_LBUTTON)
+	if (GetCapture() == this && (nFlags & MK_LBUTTON) && m_player)
 	{
-		if (!m_bIsDragging)
+		CPoint videoPoint;
+		if (!MapPoint(point, videoPoint))
+			return;
+		const int vw = m_player->GetVideoWidth();
+		const int vh = m_player->GetVideoHeight();
+		if (vw <= 0 || vh <= 0)
+			return;
+
+		if (m_bIsDragging)
 		{
-			m_ptEnd = point;
-			if (m_player)
+			RECT r = {};
+			if (m_player->GetBoundingBox(&r))
 			{
-				int vw = m_player->GetVideoWidth();
-				int vh = m_player->GetVideoHeight();
-
-				if (vw == -1 || vh == -1)
-					return;
-
-				RECT r;
-				if ( m_ptStart.x < m_ptEnd.x)
+				const int dx = videoPoint.x - m_ptDragStart.x;
+				const int dy = videoPoint.y - m_ptDragStart.y;
+				if (r.left + dx >= 0 && r.top + dy >= 0 &&
+					r.right + dx < vw && r.bottom + dy < vh - 1)
 				{
-					r.left = m_ptStart.x;
-					r.right = m_ptEnd.x;
+					m_player->SetBoundingBox(r.left + dx, r.top + dy,
+						r.right - r.left, r.bottom - r.top);
+					m_ptDragStart = videoPoint;
+					m_bboxChangedDuringDrag = TRUE;
 				}
-				else
-				{
-					r.left = m_ptEnd.x;
-					r.right = m_ptStart.x;
-				}
-
-				if ( m_ptStart.y < m_ptEnd.y)
-				{
-					r.top = m_ptStart.y;
-					r.bottom = m_ptEnd.y;
-				}
-				else
-				{
-					r.top = m_ptEnd.y;
-					r.bottom = m_ptStart.y;
-				}
-
-				RECT clr;
-				GetClientRect(&clr);
-
-				int w = r.right-r.left;
-				int h = r.bottom-r.top;						
-
-				double a = (double)clr.right/clr.bottom;
-				double b = (double)vw/vh;
-				int actw = 0, acth = 0;
-				int dw = 0, dh = 0;
-				double kw = 0, kh = 0;
-
-				int leftb = 0, topb = 0, wb = 0, hb = 0;
-				if ( a > b ) // Black areas at sides
-				{
-					actw = clr.bottom * b;
-					acth = clr.bottom;
-				}
-				else // Black areas at top/bottom
-				{
-					actw = clr.right;
-					acth = clr.right / b;
-				}
-
-				dw = (clr.right - actw)/2 ;
-				dh = (clr.bottom - acth)/2;
-
-				kw = (double)clr.right / actw;
-				kh = (double)clr.bottom / acth;
-
-				leftb = (((double)vw / (clr.right-clr.left)) * (r.left-dw))*kw;
-				topb = ((double)vh / (clr.bottom-clr.top)) * ((clr.bottom - r.bottom - dh) )*kh;
-				wb = ((double)vw / (clr.right-clr.left)) * w * kw; 
-				hb = ((double)vh / (clr.bottom-clr.top)) * h * kh;
-
-
-				char str[MAX_PATH];
-				sprintf_s(str, MAX_PATH,"left = %d, top = %d, width = %d, height = %d\n", leftb, topb, wb, hb);
-				OutputDebugStringA(str);
-
-				if (leftb >= 0 && topb >= 0 && (leftb+wb) < vw && (topb+hb) < vh-1 )
-					m_player->SetBoundingBox(leftb, topb, wb, hb);
 			}
 		}
 		else
 		{
-			if (m_player)
+			const int left = min(m_ptStart.x, videoPoint.x);
+			const int bottom = min(m_ptStart.y, videoPoint.y);
+			const int width = abs(videoPoint.x - m_ptStart.x);
+			const int height = abs(videoPoint.y - m_ptStart.y);
+			if (width >= 2 && height >= 1 && left >= 0 && bottom >= 0 &&
+				left + width < vw && bottom + height < vh - 1)
 			{
-				int vw = m_player->GetVideoWidth();
-				int vh = m_player->GetVideoHeight();
-
-				RECT r;
-				m_player->GetBoundingBox(&r);
-				CPoint pt = MapPoint(point, r);
-
-				int dx = pt.x - m_ptDragStart.x;
-				int dy = pt.y - m_ptDragStart.y;
-
-				r.left += dx;
-				r.top += dy;
-				r.right += dx;
-				r.bottom += dy;
-
-				if (r.left >= 0 && r.top >= 0 && r.right < vw && r.bottom < vh-1 )
-				{
-					m_player->SetBoundingBox(r.left, r.top, r.right-r.left, r.bottom-r.top);	
-					m_ptDragStart = pt;
-				}
+				m_player->SetBoundingBox(left, bottom, width, height);
+				m_bboxChangedDuringDrag = TRUE;
 			}
 		}
 	}
@@ -216,52 +142,39 @@ void CPlayerWindow::SetPlayer(CPlayer *player)
 void CPlayerWindow::OnLButtonUp(UINT nFlags, CPoint point)
 {
 	m_bIsDragging = FALSE;
-	ReleaseCapture();
+	if (GetCapture() == this)
+		ReleaseCapture();
+	if (m_bboxChangedDuringDrag && GetParent())
+		GetParent()->PostMessage(WM_APP + 1);
+	m_bboxChangedDuringDrag = FALSE;
 	CWnd::OnLButtonUp(nFlags, point);
 }
 
-CPoint &CPlayerWindow::MapPoint(CPoint &pt, RECT &r)
+bool CPlayerWindow::MapPoint(const CPoint &point, CPoint &videoPoint)
 {
-	CPoint result = pt;
-	int vw = m_player->GetVideoWidth();
-	int vh = m_player->GetVideoHeight();
+	if (!m_player)
+		return false;
+	const int vw = m_player->GetVideoWidth();
+	const int vh = m_player->GetVideoHeight();
+	CRect client;
+	GetClientRect(&client);
+	if (vw <= 0 || vh <= 0 || client.Width() <= 0 || client.Height() <= 0)
+		return false;
 
-	if (vw != -1 && vh != -1)
-	{
-		RECT clr;
-		GetClientRect(&clr);
+	const double scale = min(client.Width() / double(vw), client.Height() / double(vh));
+	if (scale <= 0.0)
+		return false;
+	const double displayWidth = vw * scale;
+	const double displayHeight = vh * scale;
+	const double left = (client.Width() - displayWidth) / 2.0;
+	const double top = (client.Height() - displayHeight) / 2.0;
+	if (point.x < left || point.x >= left + displayWidth ||
+		point.y < top || point.y >= top + displayHeight)
+		return false;
 
-		int w = r.right-r.left;
-		int h = r.bottom-r.top;		
-
-		double a = (double)clr.right/clr.bottom;
-		double b = (double)vw/vh;
-		int actw = 0, acth = 0;
-		int dw = 0, dh = 0;
-		double kw = 0, kh = 0;
-
-		int leftb = 0, topb = 0, wb = 0, hb = 0;
-		if ( a > b ) // Black areas at sides
-		{
-			actw = clr.bottom * b;
-			acth = clr.bottom;
-		}
-		else // Black areas at top/bottom
-		{
-			actw = clr.right;
-			acth = clr.right / b;
-		}
-
-		dw = (clr.right - actw)/2 ;
-		dh = (clr.bottom - acth)/2;
-
-		kw = (double)clr.right / actw;
-		kh = (double)clr.bottom / acth;
-
-		result.x = (((double)vw / (clr.right-clr.left)) * (result.x-dw))*kw;
-		result.y = ((double)vh / (clr.bottom-clr.top)) * ((clr.bottom - result.y - dh) )*kh;
-	}
-	return result;
+	videoPoint.x = min(vw - 1, int((point.x - left) / scale));
+	videoPoint.y = min(vh - 1, int((top + displayHeight - 1 - point.y) / scale));
+	return true;
 }
 
 void CPlayerWindow::OnRButtonDown(UINT nFlags, CPoint point)

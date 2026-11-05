@@ -100,6 +100,7 @@ BEGIN_MESSAGE_MAP(CSampleDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BROWSE_BTN2, &CSampleDlg::OnBnClickedBrowseBtn2)
 	ON_BN_CLICKED(IDC_STEP_BTN, &CSampleDlg::OnBnClickedStepBtn)
 	ON_BN_CLICKED(IDC_STEP_BTN2, &CSampleDlg::OnBnClickedStepBtn2)
+	ON_MESSAGE(WM_APP + 1, &CSampleDlg::OnPlayerBBoxChanged)
 
 	ON_WM_KILLFOCUS()
 	ON_WM_KEYDOWN()
@@ -184,8 +185,8 @@ BOOL CSampleDlg::OnInitDialog()
 	m_edtFile2.EnableWindow(TRUE);
 	m_btnBrowse1.EnableWindow(TRUE);
 
-	m_edtBBoxX.SetWindowText(L"10");
-	m_edtBBoxY.SetWindowText(L"10");
+	m_edtBBoxX.SetWindowText(L"0");
+	m_edtBBoxY.SetWindowText(L"0");
 	m_edtBBoxWidth.SetWindowText(L"100");
 	m_edtBBoxHeight.SetWindowText(L"100");
 
@@ -226,10 +227,18 @@ void CSampleDlg::InitPlayer()
 	HRESULT hr = m_player.Init(m_playerWnd.m_hWnd, m_playerWnd_p.m_hWnd);
 	if (FAILED(hr))
 	{
-		CString errmsg = L"Failed build graph ";
-		MessageBox(errmsg.GetBuffer(),L"Error", MB_ICONERROR);
+		CString errmsg;
+		errmsg.Format(L"Failed build graph at: %s\nHRESULT: 0x%08X\nDetails: VideoMixerApp-graph.log",
+			m_player.GetLastGraphStage().GetString(), static_cast<unsigned int>(hr));
+		MessageBox(errmsg, L"Error", MB_ICONERROR);
+		m_btnBBoxSet.EnableWindow(FALSE);
+		return;
 	}
 
+	// A new graph creates new mixer instances. Restore the rectangle currently
+	// shown in the controls before playback or the timer can observe the defaults.
+	m_player.SetBoundingBox(GetDlgItemInt(IDC_BBOX_X_EDIT), GetDlgItemInt(IDC_BBOX_Y_EDIT),
+		GetDlgItemInt(IDC_BBOX_WIDTH_EDIT), GetDlgItemInt(IDC_BBOX_HEIGHT_EDIT));
 	m_btnBBoxSet.EnableWindow(TRUE);
 }
 
@@ -288,7 +297,14 @@ HBRUSH CSampleDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 
 void CSampleDlg::Play()
 {	
-	m_player.Play();
+	HRESULT hr = m_player.Play();
+	if (hr != S_OK)
+	{
+		CString errmsg;
+		errmsg.Format(L"Playback failed. HRESULT: 0x%08X", static_cast<unsigned int>(hr));
+		MessageBox(errmsg, L"Error", MB_ICONERROR);
+		return;
+	}
 	//m_player.SwitchVW(TRUE);
 	m_playerWnd_p.ShowWindow(SW_HIDE);
 	m_playerWnd.ShowWindow(SW_SHOW);
@@ -661,19 +677,21 @@ void CSampleDlg::OnTimer(UINT_PTR nTimerID)
 			}
 			m_slider.SetPos( (int)(position * 100.0f / duration) );
 
-			char str[MAX_PATH];
-			sprintf_s(str,MAX_PATH, "CSampleDlg::OnTimer position = %I64d, duration = %I64d lbutton state=%d\n", position , duration);
-			//OutputDebugStringA(str);
-			
-			UpdateBBoxControls();
 		}
 	}
 }
 
+LRESULT CSampleDlg::OnPlayerBBoxChanged(WPARAM, LPARAM)
+{
+	UpdateBBoxControls();
+	return 0;
+}
+
 void  CSampleDlg::UpdateBBoxControls()
 {
-	RECT r;
-	m_player.GetBBox(r);
+	RECT r = {};
+	if (!m_player.GetBBox(r))
+		return;
 	SetDlgItemInt(IDC_BBOX_X_EDIT, r.left);
 	SetDlgItemInt(IDC_BBOX_Y_EDIT, r.top);
 	SetDlgItemInt(IDC_BBOX_WIDTH_EDIT, r.right - r.left);
@@ -695,8 +713,23 @@ void CSampleDlg::OnNMReleasedcaptureSlider1(NMHDR *pNMHDR, LRESULT *pResult)
 
 void CSampleDlg::OnBnClickedStepBtn2()
 {
-	m_player.SetBoundingBox(GetDlgItemInt(IDC_BBOX_X_EDIT), GetDlgItemInt(IDC_BBOX_Y_EDIT),
-		GetDlgItemInt(IDC_BBOX_WIDTH_EDIT), GetDlgItemInt(IDC_BBOX_HEIGHT_EDIT));
+	BOOL okX = FALSE, okY = FALSE, okWidth = FALSE, okHeight = FALSE;
+	const int x = GetDlgItemInt(IDC_BBOX_X_EDIT, &okX, TRUE);
+	const int y = GetDlgItemInt(IDC_BBOX_Y_EDIT, &okY, TRUE);
+	const int width = GetDlgItemInt(IDC_BBOX_WIDTH_EDIT, &okWidth, TRUE);
+	const int height = GetDlgItemInt(IDC_BBOX_HEIGHT_EDIT, &okHeight, TRUE);
+	const int videoWidth = m_player.GetVideoWidth();
+	const int videoHeight = m_player.GetVideoHeight();
+	if (!okX || !okY || !okWidth || !okHeight || x < 0 || y < 0 ||
+		width < 2 || height < 1 ||
+		(videoWidth > 0 && (x >= videoWidth || width >= videoWidth - x)) ||
+		(videoHeight > 0 && (y >= videoHeight - 1 || height >= videoHeight - 1 - y)))
+	{
+		MessageBox(L"Enter a rectangle inside the video using non-negative X and Y and positive width and height.",
+			L"Invalid bounding box", MB_ICONWARNING);
+		return;
+	}
+	m_player.SetBoundingBox(x, y, width, height);
 }
 
 
@@ -704,16 +737,16 @@ void CSampleDlg::OnBnClickedStepBtn2()
 
 BOOL CSampleDlg::PreTranslateMessage(MSG* pMsg)
 {
-	
-	if (pMsg->message == WM_KEYDOWN)
+	// Do not consume keystrokes directed to edit controls. The old handler
+	// swallowed every key, making the rectangle fields impossible to type in.
+	if (pMsg->message == WM_KEYDOWN && pMsg->hwnd == m_hWnd &&
+		(pMsg->wParam == 'Q' || pMsg->wParam == 'W' ||
+		 pMsg->wParam == 'E' || pMsg->wParam == 'R'))
 	{
 		OnHotKey(pMsg);
-		SetFocus();
-		return true; //mf added
+		return TRUE;
 	}
-	
 	return CDialogEx::PreTranslateMessage(pMsg);
-	
 }
 
 
