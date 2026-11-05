@@ -147,7 +147,7 @@ CPushPinBitmap::~CPushPinBitmap()
 	
 	if (m_pImage)
 	{
-		delete m_pImage;
+		delete[] m_pImage;
 		m_pImage = NULL;
 	}
 	    
@@ -308,19 +308,30 @@ HRESULT CPushPinBitmap::FillBuffer(IMediaSample *pSample)
 
 HRESULT CPushPinBitmap::SetVideoSize (SIZE size)
 {
+	if (size.cx <= 0 || size.cy <= 0)
+		return E_INVALIDARG;
+
 	m_bmi.bmiHeader.biWidth = size.cx;
 	m_bmi.bmiHeader.biHeight = size.cy;
 
-	m_bmi.bmiHeader.biSizeImage = m_bmi.bmiHeader.biWidth * m_bmi.bmiHeader.biHeight * m_bmi.bmiHeader.biBitCount/8;
+	const DWORD rowBytes = size.cx * (m_bmi.bmiHeader.biBitCount / 8);
+	const DWORD stride = (rowBytes + 3) & ~3u;
+	m_bmi.bmiHeader.biSizeImage = stride * size.cy;
 	if (m_pImage)
-		delete m_pImage;
+		delete[] m_pImage;
 	m_pImage = new BYTE[m_bmi.bmiHeader.biSizeImage ];
+	memset(m_pImage, 0, m_bmi.bmiHeader.biSizeImage);
 	return S_OK;
 }
 
 HRESULT CPushPinBitmap::SetRawData (BYTE *data)
 {
-	memcpy(m_pImage, data, m_bmi.bmiHeader.biSizeImage);
+	if (!data || !m_pImage)
+		return E_POINTER;
+	const DWORD rowBytes = m_bmi.bmiHeader.biWidth * (m_bmi.bmiHeader.biBitCount / 8);
+	const DWORD stride = (rowBytes + 3) & ~3u;
+	for (LONG row = 0; row < m_bmi.bmiHeader.biHeight; ++row)
+		memcpy(m_pImage + row * stride, data + row * rowBytes, rowBytes);
 	return S_OK;
 }
 
